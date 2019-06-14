@@ -10,6 +10,7 @@ from enum import Enum
 import pandas as pd
 import numpy as np
 import io
+import xml.etree.ElementTree as ET
 
 class Format(Enum):
     """Enumerates supported file formats."""
@@ -24,6 +25,10 @@ class Format(Enum):
     """Vondrick, Carl, Donald Patterson, and Deva Ramanan. "Efficiently scaling up crowdsourced video annotation." International Journal of Computer Vision 101.1 (2013): 184-204.
     https://github.com/cvondrick/vatic
     """
+
+    UA_DETRAC = "ua_detrac"
+    """L. Wen, D. Du, Z. Cai, Z. Lei, M. Chang, H. Qi, J. Lim, M. Yang, and S. Lyu. 
+    UA-DETRAC: A new benchmark and protocol for multi-object tracking. CoRR, abs/1511.04136, 2015. """
 
 
 def load_motchallenge(fname, **kwargs):
@@ -160,6 +165,50 @@ def load_vatictxt(fname, **kwargs):
 
         return df
 
+def load_ua_detrac(fname, **kwargs):
+    sep = kwargs.pop('sep', '\s+|\t+|,')
+    min_confidence = kwargs.pop('min_confidence', -1)
+
+    xtree = ET.parse(fname)
+    xroot = xtree.getroot()
+    columns = ['FrameId', 'Id', 'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility']
+
+    converted_data = []
+    for i in range(2, len(xroot)):
+        object_num = int(xroot[i].attrib['density'])
+        frame_index = int(xroot[i].attrib['num'])
+        node = xroot[i][0]
+        for j in range(object_num):
+            track_id = int(node[j].attrib["id"])
+            l = float(node[j][0].attrib["left"])
+            t = float(node[j][0].attrib["top"])
+            w = float(node[j][0].attrib["width"])
+            h = float(node[j][0].attrib["height"])
+            object_type = node[j][1].attrib["vehicle_type"]
+            overlap_ratio = float(node[j][1].attrib["truncation_ratio"])
+
+            converted_data += [[
+                frame_index, track_id, l, t, w, h,
+                1, object_type, 1-overlap_ratio
+            ]]
+
+    df = pd.DataFrame(converted_data, columns=columns)
+
+    labelmap = {
+    "bus": 1,
+    "car": 2,
+    "others": 3,
+    "van": 4
+    }
+
+    df = df.replace({"object_type": labelmap})
+
+    # Account for matlab convention.
+    df[['X', 'Y']] -= (1, 1)
+
+    # Remove all rows without sufficient confidence
+    return df[df['Confidence'] >= min_confidence]
+
 def loadtxt(fname, fmt=Format.MOT15_2D, **kwargs):
     """Load data from any known format."""
     fmt = Format(fmt)
@@ -167,7 +216,8 @@ def loadtxt(fname, fmt=Format.MOT15_2D, **kwargs):
     switcher = {
         Format.MOT16: load_motchallenge,
         Format.MOT15_2D: load_motchallenge,
-        Format.VATIC_TXT: load_vatictxt
+        Format.VATIC_TXT: load_vatictxt,
+        Format.UA_DETRAC: load_ua_detrac
     }
     func = switcher.get(fmt)
     return func(fname, **kwargs)
