@@ -12,6 +12,7 @@ import motmetrics as mm
 import pandas as pd
 from collections import OrderedDict
 from pathlib import Path
+from tqdm import trange
 
 def parse_args():
     parser = argparse.ArgumentParser(description="""
@@ -78,13 +79,21 @@ if __name__ == '__main__':
     gtfiles = glob.glob(os.path.join(args.groundtruths, '*/gt/gt.txt'))
     tsfiles = [f for f in glob.glob(os.path.join(args.tests, '*.txt')) if not os.path.basename(f).startswith('eval')]
 
+    sequence_list = [Path(g).parts[-3] for g in gtfiles]
+    tsfiles = [t for t in tsfiles if os.path.splitext(Path(t).parts[-1])[0] in sequence_list]
+    sequence_list = [os.path.splitext(Path(t).parts[-1])[0] for t in tsfiles]
+    gtfiles = [g for g in gtfiles if Path(g).parts[-3] in sequence_list]
+
     logging.info('Found {} groundtruths and {} test files.'.format(len(gtfiles), len(tsfiles)))
     logging.info('Available LAP solvers {}'.format(mm.lap.available_solvers))
     logging.info('Default LAP solver \'{}\''.format(mm.lap.default_solver))
     logging.info('Loading files.')
-    
-    gt = OrderedDict([(Path(f).parts[-3], mm.io.loadtxt(f, fmt=args.fmt, min_confidence=1)) for f in gtfiles])
-    ts = OrderedDict([(os.path.splitext(Path(f).parts[-1])[0], mm.io.loadtxt(f, fmt=args.fmt)) for f in tsfiles])    
+
+    logging.info("Loading ground truth files.")
+    gt = OrderedDict([(Path(f).parts[-3], mm.io.loadtxt(f, fmt=args.fmt, min_confidence=1)) for _, f in zip(trange(len(gtfiles)), gtfiles)])
+
+    logging.info("Loading testing files")
+    ts = OrderedDict([(os.path.splitext(Path(f).parts[-1])[0], mm.io.loadtxt(f, fmt=args.fmt)) for _, f in zip(trange(len(tsfiles)), tsfiles)])
 
     mh = mm.metrics.create()    
     accs, names = compare_dataframes(gt, ts)

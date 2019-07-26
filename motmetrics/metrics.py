@@ -12,6 +12,8 @@ import pandas as pd
 import numpy as np
 import inspect
 import itertools
+import logging
+import tqdm
 
 class MetricsHost:
     """Keeps track of metrics and intra metric dependencies."""
@@ -138,7 +140,10 @@ class MetricsHost:
         df_map.noraw = df[df.Type != 'RAW']
 
         cache = {}
-        for mname in metrics:
+        tqdm_metrics = tqdm(metrics)
+        for mname in tqdm_metrics:
+            tqdm_metrics.set_description("Evaluate {} metric".format(mname))
+            # logging.info("Evaluate {} metric".format(mname))
             cache[mname] = self._compute(df_map, mname, cache, parent='summarize')            
 
         if name is None:

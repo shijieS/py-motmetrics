@@ -166,6 +166,29 @@ def load_vatictxt(fname, **kwargs):
         return df
 
 def load_ua_detrac(fname, **kwargs):
+    """Load UA_DETRAC dataset from xml and formated it by MOT16 format
+
+    Params
+    ------
+    fname : str
+        Filename to load data from
+    Kwargs
+    ------
+    sep : str
+        Allowed field separators, defaults to '\s+|\t+|,'
+    min_confidence : float
+        Rows with confidence less than this threshold are removed.
+        Defaults to -1. You should set this to 1 when loading
+        ground truth MOTChallenge data, so that invalid rectangles in
+        the ground truth are not considered during matching.
+    Returns
+    ------
+    df : pandas.DataFrame
+        The returned dataframe has the following columns
+            'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility'
+        The dataframe is indexed by ('FrameId', 'Id'). (The Confidence will always be 1)
+    """
+
     sep = kwargs.pop('sep', '\s+|\t+|,')
     min_confidence = kwargs.pop('min_confidence', -1)
 

@@ -10,6 +10,7 @@ import pandas as pd
 from collections import OrderedDict
 from itertools import count
 from motmetrics.lap import linear_sum_assignment
+from tqdm import trange
 
 class MOTAccumulator(object):
     """Manage tracking events.
@@ -314,7 +315,7 @@ class MOTAccumulator(object):
         new_hid = count()
 
         r = MOTAccumulator.new_event_dataframe()
-        for df in dfs:
+        for _, df in zip(trange(len(dfs)), dfs):
 
             if isinstance(df, MOTAccumulator):
                 df = df.events

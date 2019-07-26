@@ -12,6 +12,7 @@ from .io import  loadtxt, Format
 from .distances import iou_matrix, norm2squared_matrix
 import os
 from collections import OrderedDict
+from tqdm import trange
 
 def compare_to_groundtruth(gt, dt, dist='iou', distfields=['X', 'Y', 'Width', 'Height'], distth=0.5):
     """Compare groundtruth and detector results.
@@ -54,7 +55,7 @@ def compare_to_groundtruth(gt, dt, dist='iou', distfields=['X', 'Y', 'Width', 'H
     # case a frame is missing in detector results this will lead to FNs.
     allframeids = gt.index.union(dt.index).levels[0]
     
-    for fid in allframeids:
+    for _, fid in zip(trange(len(allframeids)), allframeids):
         oids = np.empty(0)
         hids = np.empty(0)
         dists = np.empty((0,0))
