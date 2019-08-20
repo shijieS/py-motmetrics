@@ -31,6 +31,7 @@ class Format(Enum):
     UA-DETRAC: A new benchmark and protocol for multi-object tracking. CoRR, abs/1511.04136, 2015. """
 
     AMOTD = 'amotd'
+    AMOTD_TEST = 'amotd_test'
     """An awesome mot tracking dataset. https://github.com/shijieS/AwesomeMOTDataset
     """
 
@@ -231,6 +232,7 @@ def load_ua_detrac(fname, **kwargs):
 
     # Account for matlab convention.
     df[['X', 'Y']] -= (1, 1)
+    df = df.set_index(['FrameId', 'Id'])
 
     # Remove all rows without sufficient confidence
     return df[df['Confidence'] >= min_confidence]
@@ -263,18 +265,58 @@ def load_amot(fname, **kwargs):
     sep = kwargs.pop('sep', '\s+|\t+|,')
     min_confidence = kwargs.pop('min_confidence', -1)
     columns = ['FrameId', 'Id', 'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility']
-    df = pd.read_csv(fname, index_col=False, sep=sep)
-    df = df.loc[:, ['frame_idx', 'id', 'l', 't', 'r', 'b', 'number_of_wheels', 'integrity']]
-    df.loc[:, ['r', 'b']] -= df.loc[:, ['l', 't']]
+    df = pd.read_csv(fname, index_col=False)
+    df = df.loc[:, ['frame_idx', 'id', 'l', 't', 'r', 'b', 'pt0_x', 'number_of_wheels', 'integrity']]
+    df.loc[:, ['r', 'b']] = df.loc[:, ['r', 'b']].values - df.loc[:, ['l', 't']].values
     df["number_of_wheels"] = 1
+    df["pt0_x"] = 1
     df.columns = columns
-    df.loc[:, ['X', 'Y', 'Width', 'Height']] /= np.array([1920, 1080, 1920, 1080])
+    # df.loc[:, ['X', 'Y', 'Width', 'Height']] /= np.array([1920, 1080, 1920, 1080])
 
-    labelmap = {
-        "vehicle": 1
-    }
+    # Account for matlab convention.
+    df[['X', 'Y']] -= (1, 1)
+    df = df.set_index(['FrameId', 'Id'])
 
-    df = df.replace({"object_type": labelmap})
+    # Remove all rows without sufficient confidence
+    return df[df['Confidence'] >= min_confidence]
+
+def load_amot_test(fname, **kwargs):
+    """Load AMOT test data.
+
+        Params
+        ------
+        fname : str
+            Filename to load data from
+
+        Kwargs
+        ------
+        sep : str
+            Allowed field separators, defaults to '\s+|\t+|,'
+        min_confidence : float
+            Rows with confidence less than this threshold are removed.
+            Defaults to -1. You should set this to 1 when loading
+            ground truth MOTChallenge data, so that invalid rectangles in
+            the ground truth are not considered during matching.
+
+        Returns
+        ------
+        df : pandas.DataFrame
+            The returned dataframe has the following columns
+                'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility'
+            The dataframe is indexed by ('FrameId', 'Id')
+        """
+
+    sep = kwargs.pop('sep', '\s+|\t+|,')
+    min_confidence = kwargs.pop('min_confidence', -1)
+    df = pd.read_csv(
+        fname,
+        sep=sep,
+        index_col=[0, 1],
+        skipinitialspace=True,
+        header=None,
+        names=['FrameId', 'Id', 'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility'],
+        engine='python'
+    )
 
     # Account for matlab convention.
     df[['X', 'Y']] -= (1, 1)
@@ -292,7 +334,8 @@ def loadtxt(fname, fmt=Format.MOT15_2D, **kwargs):
         Format.MOT15_2D: load_motchallenge,
         Format.VATIC_TXT: load_vatictxt,
         Format.UA_DETRAC: load_ua_detrac,
-        Format.AMOTD: load_amot
+        Format.AMOTD: load_amot,
+        Format.AMOTD_TEST: load_amot_test
     }
     func = switcher.get(fmt)
     return func(fname, **kwargs)

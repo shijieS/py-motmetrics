@@ -13,7 +13,7 @@ import numpy as np
 import inspect
 import itertools
 import logging
-import tqdm
+from tqdm import tqdm
 
 class MetricsHost:
     """Keeps track of metrics and intra metric dependencies."""
