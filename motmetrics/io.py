@@ -30,6 +30,9 @@ class Format(Enum):
     """L. Wen, D. Du, Z. Cai, Z. Lei, M. Chang, H. Qi, J. Lim, M. Yang, and S. Lyu. 
     UA-DETRAC: A new benchmark and protocol for multi-object tracking. CoRR, abs/1511.04136, 2015. """
 
+    AMOTD = 'amotd'
+    """An awesome mot tracking dataset. https://github.com/shijieS/AwesomeMOTDataset
+    """
 
 def load_motchallenge(fname, **kwargs):
     """Load MOT challenge data.
@@ -232,6 +235,54 @@ def load_ua_detrac(fname, **kwargs):
     # Remove all rows without sufficient confidence
     return df[df['Confidence'] >= min_confidence]
 
+def load_amot(fname, **kwargs):
+    """Load AMOT dataset.
+
+        Params
+        ------
+        fname : str
+            Filename to load data from
+
+        Kwargs
+        ------
+        sep : str
+            Allowed field separators, defaults to '\s+|\t+|,'
+        min_confidence : float
+            Rows with confidence less than this threshold are removed.
+            Defaults to -1. You should set this to 1 when loading
+            ground truth MOTChallenge data, so that invalid rectangles in
+            the ground truth are not considered during matching.
+
+        Returns
+        ------
+        df : pandas.DataFrame
+            The returned dataframe has the following columns
+                'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility'
+            The dataframe is indexed by ('FrameId', 'Id')
+        """
+    sep = kwargs.pop('sep', '\s+|\t+|,')
+    min_confidence = kwargs.pop('min_confidence', -1)
+    columns = ['FrameId', 'Id', 'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility']
+    df = pd.read_csv(fname, index_col=False, sep=sep)
+    df = df.loc[:, ['frame_idx', 'id', 'l', 't', 'r', 'b', 'number_of_wheels', 'integrity']]
+    df.loc[:, ['r', 'b']] -= df.loc[:, ['l', 't']]
+    df["number_of_wheels"] = 1
+    df.columns = columns
+    df.loc[:, ['X', 'Y', 'Width', 'Height']] /= np.array([1920, 1080, 1920, 1080])
+
+    labelmap = {
+        "vehicle": 1
+    }
+
+    df = df.replace({"object_type": labelmap})
+
+    # Account for matlab convention.
+    df[['X', 'Y']] -= (1, 1)
+
+    # Remove all rows without sufficient confidence
+    return df[df['Confidence'] >= min_confidence]
+
+
 def loadtxt(fname, fmt=Format.MOT15_2D, **kwargs):
     """Load data from any known format."""
     fmt = Format(fmt)
@@ -240,7 +291,8 @@ def loadtxt(fname, fmt=Format.MOT15_2D, **kwargs):
         Format.MOT16: load_motchallenge,
         Format.MOT15_2D: load_motchallenge,
         Format.VATIC_TXT: load_vatictxt,
-        Format.UA_DETRAC: load_ua_detrac
+        Format.UA_DETRAC: load_ua_detrac,
+        Format.AMOTD: load_amot
     }
     func = switcher.get(fmt)
     return func(fname, **kwargs)
